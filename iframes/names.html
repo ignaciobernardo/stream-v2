@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .ticker-wrap {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      background: #191919;
+      padding: 16px 0 22px;
+    }
+
+    .ticker-track {
+      display: inline-flex;
+      align-items: center;
+      will-change: transform;
+    }
+
+    @keyframes scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(var(--shift)); }
+    }
+
+    .item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding-right: 80px;
+    }
+
+    .name {
+      font-family: 'GT America', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 60px;
+      line-height: 1;
+      color: #07FF00;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 6px solid #07FF00;
+      padding-bottom: 8px;
+    }
+
+    .arrow {
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: block;
+      align-self: center;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="track"></div>
+  </div>
+
+  <script type="module">
+    import { animate, scrambleText } from 'https://cdn.jsdelivr.net/npm/animejs@4/+esm';
+
+    const API_URL    = "/api/live";
+    const POLL_MS    = 500;
+    const SPEED      = 120; // px/s
+    const SCRAMBLE_MS = 2500;
+    const STAGGER_MS  = 200;
+
+    const ARROW_SVG = `<svg width="44" height="44" viewBox="0 0 104 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.3514 106L0 87.8523L65.9813 21.4832L34.987 21.8916V0H104V69.5549H81.4107L81.8168 38.9366L17.3514 106Z" fill="#07FF00"/>
+    </svg>`;
+
+    const track = document.getElementById("track");
+    let lastSlug = null;
+
+    function buildItems(members) {
+      return members.map(({ fullName }) =>
+        `<span class="item">
+          <span class="name">${fullName}</span>
+          <span class="arrow">${ARROW_SVG}</span>
+        </span>`
+      ).join("");
+    }
+
+    function launchTicker(members) {
+      // Build single set, measure, then duplicate
+      track.innerHTML = buildItems(members);
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const setWidth = track.scrollWidth;
+          if (!setWidth) return;
+
+          const copies = Math.ceil((window.innerWidth * 2) / setWidth) + 1;
+          track.innerHTML = buildItems(members).repeat(copies);
+
+          track.style.setProperty("--shift", `-${setWidth}px`);
+
+          // Start animation
+          void track.offsetWidth;
+          track.style.animation = `scroll ${setWidth / SPEED}s linear infinite`;
+
+          // Scramble only the first set of names (the rest are invisible offscreen)
+          [...track.querySelectorAll(".name")]
+            .slice(0, members.length)
+            .forEach((el, i) => {
+              animate(el, {
+                innerHTML: scrambleText(),
+                duration: SCRAMBLE_MS,
+                delay: i * STAGGER_MS,
+              });
+            });
+        });
+      });
+    }
+
+    function applyMembers(members, slug) {
+      if (slug === lastSlug) return;
+      lastSlug = slug;
+
+      if (!members.length) {
+        track.style.animation = "none";
+        track.innerHTML = "";
+        return;
+      }
+
+      const names     = members.map(m => m.fullName);
+      const nameEls   = [...track.querySelectorAll(".name")];
+
+      if (!nameEls.length) {
+        // First load — build ticker and scramble in
+        launchTicker(members);
+        return;
+      }
+
+      // Ticker already running — scramble existing names in place, ticker keeps moving
+      nameEls.forEach((el, i) => {
+        animate(el, {
+          innerHTML: scrambleText({ text: names[i % names.length] }),
+          duration: SCRAMBLE_MS,
+          delay: (i % names.length) * STAGGER_MS,
+        });
+      });
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const members = data.presenting?.team?.members ?? [];
+        const slug    = data.presenting?.team?.slug    ?? "__none__";
+        applyMembers(members, slug);
+      } catch (_) {}
+    }
+
+    if (new URLSearchParams(location.search).has("preview")) {
+      applyMembers([
+        { fullName: "Rafael Fernandez" },
+        { fullName: "Ada Lovelace" },
+        { fullName: "Linus Torvalds" },
+      ], "__preview__");
+    } else {
+      poll();
+      setInterval(poll, POLL_MS);
+    }
+  </script>
+</body>
+</html>

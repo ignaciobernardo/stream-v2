@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .ticker-wrap {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      background: #07FF00;
+      padding: 14px 0;
+    }
+
+    .ticker-track {
+      display: inline-flex;
+      align-items: center;
+      will-change: transform;
+      animation: scroll linear infinite;
+    }
+
+    @keyframes scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(var(--shift)); }
+    }
+
+    .logo-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 56px;
+    }
+
+    .logo-item img {
+      height: 40px;
+      width: auto;
+      display: block;
+      mix-blend-mode: multiply;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="track"></div>
+  </div>
+
+  <script>
+    const LOGOS = [
+      { src: "../Anthropic.png", alt: "Anthropic" },
+      { src: "../Finna.png",     alt: "Finna"     },
+    ];
+
+    const track = document.getElementById("track");
+
+    const items = LOGOS.map(({ src, alt }) =>
+      `<span class="logo-item"><img src="${src}" alt="${alt}" /></span>`
+    ).join("");
+
+    const SPEED = 80; // px/s
+
+    function setup() {
+      const setWidth = track.scrollWidth;
+      const copies   = Math.ceil((window.innerWidth * 2) / setWidth) + 1;
+      track.innerHTML = items.repeat(copies);
+
+      track.style.setProperty("--shift", `-${setWidth}px`);
+      track.style.animationDuration = `${setWidth / SPEED}s`;
+    }
+
+    // Render one set, wait for ALL images to load, then measure and duplicate
+    track.innerHTML = items;
+    const imgs = [...track.querySelectorAll("img")];
+    const loads = imgs.map(img =>
+      img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
+    );
+    Promise.all(loads).then(setup);
+  </script>
+</body>
+</html>

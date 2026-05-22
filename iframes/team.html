@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    .card {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25em;
+      background: #191919;
+      border: 2.5px solid #07FF00;
+      border-radius: 20px;
+      padding: 0.22em 0.55em;
+      white-space: nowrap;
+      /* font-size here so SVG em units resolve correctly */
+      font-size: 80px;
+    }
+
+    .card.hidden { opacity: 0; }
+
+    .plane {
+      height: 0.72em;
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .label,
+    .number {
+      font-family: 'GT America', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 1em;
+      line-height: 1;
+      color: #07FF00;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .arrow {
+      height: 0.62em;
+      width: auto;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card hidden" id="card">
+    <svg class="plane" viewBox="0 0 109 118" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M43.3379 16.2297V42.1225L0 73.0871V89.6906L43.3379 71.966V91.8794L27.0796 103.518V117.345L54.1593 109.07L81.2389 117.345V103.518L64.9807 91.8794V71.966L108.319 89.6906V73.0871L64.9807 42.1225V16.2297L59.9621 3.63033C59.0734 1.44146 56.9823 0 54.6821 0H53.6365C51.3363 0 49.2452 1.44146 48.3565 3.63033L43.3379 16.2297Z" fill="#07FF00"/>
+    </svg>
+
+    <span class="label">TEAM</span>
+
+    <svg class="arrow" viewBox="0 0 104 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.3514 106L0 87.8523L65.9813 21.4832L34.987 21.8916V0H104V69.5549H81.4107L81.8168 38.9366L17.3514 106Z" fill="#07FF00"/>
+    </svg>
+
+    <span class="number" id="number"></span>
+  </div>
+
+  <script type="module">
+    import { animate, scrambleText } from 'https://cdn.jsdelivr.net/npm/animejs@4/+esm';
+
+    const API_URL = "/api/live";
+    const POLL_MS = 500;
+
+    const card      = document.getElementById("card");
+    const numberEl  = document.getElementById("number");
+    let lastSlug    = null;
+
+    function teamId(slug) {
+      const num = slug.match(/\d+/);
+      return num ? num[0] : slug.toUpperCase();
+    }
+
+    function render(slug) {
+      if (slug === lastSlug) return;
+      lastSlug = slug;
+
+      if (!slug) { card.classList.add("hidden"); return; }
+
+      const id = teamId(slug);
+      card.classList.remove("hidden");
+      animate(numberEl, {
+        innerHTML: scrambleText({ text: id }),
+        duration: 2500,
+      });
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        render(data.presenting?.team?.slug ?? null);
+      } catch (_) {}
+    }
+
+    if (new URLSearchParams(location.search).has("preview")) {
+      render("team-21");
+    } else {
+      poll();
+      setInterval(poll, POLL_MS);
+    }
+  </script>
+</body>
+</html>

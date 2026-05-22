@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stream Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'GT America', 'Helvetica Neue', Arial, sans-serif;
+      background: #0f0f0f;
+      color: #eee;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    h1 {
+      color: #07FF00;
+      font-size: 28px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1400px;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: #191919;
+      border: 1.5px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    button, input[type=file], input[type=number], input[type=text] {
+      font: inherit;
+      background: #0f0f0f;
+      color: #eee;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    button:hover { border-color: #07FF00; }
+    button.primary { background: #07FF00; color: #0f0f0f; border-color: #07FF00; font-weight: 700; }
+    button.danger  { color: #ff5e5e; }
+
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row + .row { margin-top: 12px; }
+
+    /* hacker list */
+    .hackers {
+      max-height: 60vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hacker {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    .hacker:hover { border-color: #07FF00; }
+    .hacker.active {
+      background: #07FF00;
+      color: #0f0f0f;
+      border-color: #07FF00;
+      font-weight: 700;
+    }
+    .hacker .idx { opacity: 0.5; margin-right: 12px; font-variant-numeric: tabular-nums; }
+
+    .timer-display {
+      font-size: 72px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #07FF00;
+      text-align: center;
+      padding: 16px 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .state-pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: #2a2a2a;
+    }
+    .state-pill.running { background: #1a3d1a; color: #6dff6d; }
+    .state-pill.stopped { background: #3d2a1a; color: #ffb46d; }
+
+    .empty { color: #666; font-style: italic; padding: 24px 0; text-align: center; }
+
+    .links { font-size: 12px; color: #888; margin-top: 12px; }
+    .links a { color: #07FF00; text-decoration: none; margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Stream Admin</h1>
+
+  <div class="grid">
+    <!-- Hackers -->
+    <div class="card">
+      <h2>Hackers <span id="count" style="color:#07FF00"></span></h2>
+
+      <div class="row">
+        <input type="file" id="csv" accept=".csv,.txt" />
+        <button id="clear-stage">Limpiar stage</button>
+      </div>
+
+      <div id="hackers" class="hackers" style="margin-top:16px"></div>
+
+      <div class="links">
+        <a href="/iframes/names.html"    target="_blank">/iframes/names.html</a>
+        <a href="/iframes/team.html"     target="_blank">/iframes/team.html</a>
+        <a href="/iframes/timer.html"    target="_blank">/iframes/timer.html</a>
+        <a href="/iframes/sponsors.html" target="_blank">/iframes/sponsors.html</a>
+      </div>
+    </div>
+
+    <!-- Timer -->
+    <div class="card">
+      <h2>Timer <span id="timer-pill" class="state-pill">idle</span></h2>
+      <div class="timer-display" id="timer-display">--:--</div>
+
+      <div class="row">
+        <button class="primary" id="start">Start (3 min)</button>
+      </div>
+      <div class="row">
+        <button id="pause">Pause</button>
+        <button id="resume">Resume</button>
+        <button class="danger" id="reset">Reset</button>
+      </div>
+
+      <h2 style="margin-top:24px">Currently presenting</h2>
+      <div id="current">—</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // ─── CSV upload ──────────────────────────────────────────────────────────
+    $("csv").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text  = await file.text();
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return;
+
+      // Detect header row (if first row contains "name"/"fullname" we skip it)
+      const header = lines[0].toLowerCase();
+      const start  = /name|hacker|nombre/.test(header) && !/[áéíóú]/i.test(header) && lines.length > 1 ? 1 : 0;
+
+      const hackers = lines.slice(start).map((line) => {
+        const cols = line.split(/[,;\t]/).map(c => c.replace(/^"|"$/g, "").trim());
+        return { fullName: cols[0], github: cols[1] || undefined };
+      }).filter(h => h.fullName);
+
+      const res = await fetch("/api/hackers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hackers }),
+      });
+      const j = await res.json();
+      console.log("loaded", j);
+      refresh();
+    });
+
+    // ─── Stage ───────────────────────────────────────────────────────────────
+    async function setStage(index) {
+      await fetch("/api/stage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index }),
+      });
+      refresh();
+    }
+
+    $("clear-stage").addEventListener("click", () => setStage(null));
+
+    // ─── Timer ───────────────────────────────────────────────────────────────
+    const TIMER_SECONDS = 180; // fixed: 3 minutes
+
+    $("start").addEventListener("click", async () => {
+      await fetch("/api/timer/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seconds: TIMER_SECONDS }),
+      });
+      refresh();
+    });
+
+    $("pause").addEventListener("click",  () => fetch("/api/timer/pause",  { method: "POST" }).then(refresh));
+    $("resume").addEventListener("click", () => fetch("/api/timer/resume", { method: "POST" }).then(refresh));
+    $("reset").addEventListener("click",  () => fetch("/api/timer/reset",  { method: "POST" }).then(refresh));
+
+    // ─── Render ──────────────────────────────────────────────────────────────
+    let state = null;
+
+    function renderHackers() {
+      const el = $("hackers");
+      $("count").textContent = state.hackers.length ? `(${state.hackers.length})` : "";
+
+      if (!state.hackers.length) {
+        el.innerHTML = '<div class="empty">Subí un CSV con los nombres</div>';
+        return;
+      }
+
+      el.innerHTML = state.hackers.map((h, i) => `
+        <div class="hacker ${i === state.stageIndex ? "active" : ""}" data-i="${i}">
+          <div><span class="idx">${String(i + 1).padStart(2,"0")}</span>${h.fullName}</div>
+          <div>${i === state.stageIndex ? "ON STAGE" : ""}</div>
+        </div>
+      `).join("");
+
+      el.querySelectorAll(".hacker").forEach(row =>
+        row.addEventListener("click", () => setStage(Number(row.dataset.i)))
+      );
+    }
+
+    function renderCurrent() {
+      const cur = state.stageIndex != null ? state.hackers[state.stageIndex] : null;
+      $("current").textContent = cur ? cur.fullName : "—";
+    }
+
+    function renderTimerState() {
+      const pill = $("timer-pill");
+      pill.textContent = state.timer.state;
+      pill.className = "state-pill " + state.timer.state;
+    }
+
+    // Tick the timer display every animation frame (smooth countdown)
+    function tickTimer() {
+      let ms = null;
+      if (state) {
+        if (state.timer.state === "running" && state.timer.endsAt) {
+          ms = Math.max(0, new Date(state.timer.endsAt).getTime() - Date.now());
+        } else if (state.timer.state === "stopped" && state.timer.remainingSeconds != null) {
+          ms = state.timer.remainingSeconds * 1000;
+        }
+      }
+      $("timer-display").textContent = formatMs(ms);
+      requestAnimationFrame(tickTimer);
+    }
+
+    function formatMs(ms) {
+      if (ms == null) return "--:--";
+      const s = Math.ceil(ms / 1000);
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2,"0")}:${String(s % 60).padStart(2,"0")}`;
+    }
+
+    async function refresh() {
+      const res = await fetch("/api/state");
+      state = await res.json();
+      renderHackers();
+      renderCurrent();
+      renderTimerState();
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+    tickTimer();
+  </script>
+</body>
+</html>

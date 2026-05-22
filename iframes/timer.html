@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .card {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #191919;
+      border: 2.5px solid #07FF00;
+      border-radius: 20px;
+      padding: 0.22em 0.55em;
+      white-space: nowrap;
+      font-size: 80px;
+    }
+
+    .card.hidden { opacity: 0; }
+
+    .time {
+      font-family: 'GT America', 'Helvetica Neue', Arial, sans-serif;
+      font-weight: 700;
+      font-size: 1em;
+      line-height: 1;
+      color: #07FF00;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="card hidden" id="card">
+    <span class="time" id="time">--:--</span>
+  </div>
+
+  <script>
+    const API_URL  = "/api/live";
+    const POLL_MS  = 500;
+
+    const card = document.getElementById("card");
+    const time = document.getElementById("time");
+
+    // Latest snapshot from server, used for clock-skew correction
+    let snap = { timeOfFetch: null, serverNow: null, endsAt: null, remainingSeconds: null, state: "idle" };
+
+    async function poll() {
+      try {
+        const t = Date.now();
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        snap = {
+          timeOfFetch: t,
+          serverNow:        data.timer.serverNow         ? new Date(data.timer.serverNow).getTime() : t,
+          endsAt:           data.timer.endsAt            ? new Date(data.timer.endsAt).getTime()    : null,
+          remainingSeconds: data.timer.remainingSeconds,
+          state:            data.timer.state,
+        };
+      } catch (_) {}
+    }
+
+    function getRemainingMs() {
+      if (snap.state === "running" && snap.endsAt) {
+        // displayedRemaining = (endsAt - serverNow) - (Date.now() - timeOfFetch)
+        const elapsed = Date.now() - snap.timeOfFetch;
+        const serverRemaining = snap.endsAt - snap.serverNow;
+        return Math.max(0, serverRemaining - elapsed);
+      }
+      if (snap.state === "stopped" && snap.remainingSeconds != null) {
+        return snap.remainingSeconds * 1000;
+      }
+      return null;
+    }
+
+    function format(ms) {
+      if (ms == null) return null;
+      const s = Math.ceil(ms / 1000);
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2,"0")}:${String(s % 60).padStart(2,"0")}`;
+    }
+
+    function tick() {
+      const ms = getRemainingMs();
+      const formatted = format(ms);
+      if (formatted == null) {
+        card.classList.add("hidden");
+      } else {
+        time.textContent = formatted;
+        card.classList.remove("hidden");
+      }
+      requestAnimationFrame(tick);
+    }
+
+    poll();
+    setInterval(poll, POLL_MS);
+    tick();
+  </script>
+</body>
+</html>

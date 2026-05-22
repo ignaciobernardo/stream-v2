@@ -1,0 +1,78 @@
+{
+  "hackers": [
+    {
+      "fullName": "Leonardo Carone Corbo",
+      "github": "@LeonardoCarone"
+    },
+    {
+      "fullName": "Jose E. Ochoa Urdaneta",
+      "github": "@jedante-ux"
+    },
+    {
+      "fullName": "Chris Pacheco",
+      "github": "@chrisdadev13"
+    },
+    {
+      "fullName": "Genesis Zapata",
+      "github": "@zagenesis19"
+    },
+    {
+      "fullName": "Santiago Enrique Velasquez Cabrera",
+      "github": "@santiagovelasquez-png"
+    },
+    {
+      "fullName": "Carlos Eduardo Bastidas Sulvaran",
+      "github": "@CBastidas707"
+    },
+    {
+      "fullName": "Henry Rosales",
+      "github": "@henryf10h"
+    },
+    {
+      "fullName": "Camilo Sacanamboy",
+      "github": "@csacanam"
+    },
+    {
+      "fullName": "Adirson Martinez",
+      "github": "@adirsonmartinez"
+    },
+    {
+      "fullName": "David Villegas",
+      "github": "@dvd117"
+    },
+    {
+      "fullName": "Rafael Angel Villarreal Soturno",
+      "github": "@ravillarreal"
+    },
+    {
+      "fullName": "Kevin Jose Bravo Mota",
+      "github": "@0bkevin"
+    },
+    {
+      "fullName": "Rafael Alejandro Oviedo Rojas",
+      "github": "@raor00"
+    },
+    {
+      "fullName": "Anfernee Pichardo",
+      "github": "@AnferneeDev"
+    },
+    {
+      "fullName": "Antonio Guerra",
+      "github": "@aguerraAppitech"
+    },
+    {
+      "fullName": "Daniel Andres Quiaro Pinto",
+      "github": "@Quiarom"
+    },
+    {
+      "fullName": "Pastor Jimenez",
+      "github": "@Torpass"
+    }
+  ],
+  "stageIndex": 6,
+  "timer": {
+    "state": "idle",
+    "endsAt": null,
+    "remainingSeconds": null
+  }
+}
